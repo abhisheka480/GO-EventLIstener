@@ -36,7 +36,9 @@ func incomingEvent(w http.ResponseWriter, r *http.Request) {
 	ch <- *newEvent123
 	fmt.Println(ch)
 
-	channelMessages[newEvent123.Title] = append(channelMessages[newEvent123.Title], ch)
+	go func() {
+		channelMessages[newEvent123.Title] = append(channelMessages[newEvent123.Title], ch)
+	}()
 
 	w.WriteHeader(http.StatusCreated)
 
@@ -47,22 +49,30 @@ func incomingEvent(w http.ResponseWriter, r *http.Request) {
 func listenEventByType(w http.ResponseWriter, r *http.Request) {
 	typeOfEvent := mux.Vars(r)["typeOfEvent"]
 	fmt.Println(typeOfEvent)
+	listenedEvents := []event{}
+	eventPresentFlag := false
 
 	for i := range channelMessages {
 		if i == typeOfEvent {
+			eventPresentFlag = true
 			fmt.Println("FOund messages for eventTYpe:", i)
 			count := 1
 			for _, k := range channelMessages[i] {
-				// newMessage := make(chan event, 1)
-				// newMessage <- k
-				//fmt.Println(<-k)
-				fmt.Println("Message Number:", count, " message: ", <-k)
+				newEvent := <-k
+				listenedEvents = append(listenedEvents, newEvent)
+				fmt.Println("Message Number:", count, " message: ", newEvent)
 				count++
 			}
+			delete(channelMessages, i)
 		}
 	}
+	json.NewEncoder(w).Encode(listenedEvents)
 
-	fmt.Println("Listen succesfull")
+	if eventPresentFlag {
+		fmt.Println("Events were present")
+	} else {
+		fmt.Println("No events present")
+	}
 }
 
 func main() {
